@@ -146,7 +146,7 @@ fn system_handle_mouse(
         return;
     }
 
-    let deltas = vec![(0, 0), (0, 1), (1, 0), (1, 1)];
+    let deltas = vec![(0, 0), (0, 1), (1, 0), (-1, 0), (0, -1)];
 
     for (dx, dy) in deltas {
         let new_cell = CellPosition {
