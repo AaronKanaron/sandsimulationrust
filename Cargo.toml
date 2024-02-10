@@ -1,0 +1,25 @@
+[package]
+name = "sandsim"
+version = "0.1.0"
+edition = "2021"
+authors = ["Aaron Clauss"]
+description = "Sand Test in rust"
+license = "MIT"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies.bevy]
+version = "0.12.1"
+default-features = false
+features = [
+    "multi-threaded",
+    "bevy_winit",
+    "bevy_render",
+    "bevy_sprite",
+    "bevy_core_pipeline",
+    "x11",
+    "webgl2"
+]
+
+[profile.release]
+opt-level = 's'
+lto = "thin"
