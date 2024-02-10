@@ -66,21 +66,21 @@ fn system_draw_new_cells(
     }
 }
 
-fn system_entity_counter(
-    mut commands: Commands,
-    q_cells: Query<&CellPosition>
-) {
-    let mut counter = 0;
-    let mut static_counter = 0;
-    let mut moving_counter = 0;
-    for cell_position in q_cells.iter() {
-        counter += 1;
+// fn system_entity_counter(
+//     mut commands: Commands,
+//     q_cells: Query<&CellPosition>
+// ) {
+//     let mut counter = 0;
+//     let mut static_counter = 0;
+//     let mut moving_counter = 0;
+//     for cell_position in q_cells.iter() {
+//         counter += 1;
 
-        if cell_position.static_cell { static_counter += 1 }
-        else { moving_counter += 1 }
-    }
-    println!("Entity count: {} | {} static and {} mobile", counter, static_counter, moving_counter);
-}
+//         if cell_position.static_cell { static_counter += 1 }
+//         else { moving_counter += 1 }
+//     }
+//     println!("Entity count: {} | {} static and {} mobile", counter, static_counter, moving_counter);
+// }
 
 
 /*- Method implementations - */

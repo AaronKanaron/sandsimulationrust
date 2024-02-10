@@ -9,7 +9,6 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use crate::{X_MAX_BOUNDS, X_MIN_BOUNDS, Y_MAX_BOUNDS, Y_MIN_BOUNDS};
 
 /*- Constants -*/
-const PI: f64 = 3.14159265359;
 
 /*- Structs, enums & unions -*/
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -129,7 +128,6 @@ fn system_handle_mouse(
     q_camera: Query<(&Camera, &GlobalTransform)>,
     q_cells: Query<(Entity, &CellPosition)>
 ) {
-    let ball_size = 4;
     if !mouse_button.pressed(MouseButton::Left) { return }
     
     // Get the cursor position

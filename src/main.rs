@@ -1,13 +1,11 @@
 /*- Mods -*/
 mod cell_system;
 mod gui;
-mod fps_counter;
 
 /*- Imports -*/
 use bevy::prelude::*;
 use cell_system::CellSystem;
 use gui::GuiSystem;
-use fps_counter::FpsCounterPlugin;
 
 const X_MAX_BOUNDS: isize = 35;
 const X_MIN_BOUNDS: isize = -35;
@@ -24,6 +22,6 @@ fn main() {
             }),
             ..Default::default()
         }))
-        .add_plugins((CellSystem, GuiSystem, FpsCounterPlugin))
+        .add_plugins((CellSystem, GuiSystem))
         .run();
 }
