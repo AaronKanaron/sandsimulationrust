@@ -7,7 +7,7 @@ use crate::cell_system::{CellPosition, CellSet};
 
 /*- Constants -*/
 const BACKGROUND_COLOR: Color = Color::rgb(0.08, 0.08, 0.08);
-const SCALE_DEF: f32 = 1. / 1.;
+const SCALE_DEF: f32 = 1. / 4.;
 const SCALE_MAX: f32 = 1.;
 
 /*- Structs, enums & unions -*/
@@ -35,7 +35,8 @@ fn init_camera(mut commands: Commands) {
 /*- Update Systems -*/
 fn system_draw_new_cells(
     mut commands: Commands,
-    q_new_cells: Query<(Entity, &CellPosition), Added<CellPosition>>
+    // q_new_cells: Query<(Entity, &CellPosition), Added<CellPosition>>
+    q_new_cells: Query<(Entity, &CellPosition), Changed<CellPosition>>
 ) {
     for (entity, position) in q_new_cells.iter() {
         commands.entity(entity)

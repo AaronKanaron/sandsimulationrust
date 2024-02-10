@@ -5,6 +5,9 @@ edition = "2021"
 authors = ["Aaron Clauss"]
 description = "Sand Test in rust"
 license = "MIT"
+
+[dependencies]
+rand = "0.8.5"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies.bevy]
