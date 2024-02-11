@@ -7,10 +7,10 @@ use bevy::prelude::*;
 use cell_system::CellSystem;
 use gui::GuiSystem;
 
-const X_MAX_BOUNDS: isize = 35;
-const X_MIN_BOUNDS: isize = -35;
-const Y_MAX_BOUNDS: isize = 35;
-const Y_MIN_BOUNDS: isize = -35;
+const X_MAX_BOUNDS: isize = 25;
+const X_MIN_BOUNDS: isize = -25;
+const Y_MAX_BOUNDS: isize = 25;
+const Y_MIN_BOUNDS: isize = -25;
 
 fn main() {
     App::new()

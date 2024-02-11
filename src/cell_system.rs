@@ -4,10 +4,8 @@
 /*- Imports -*/
 use std::time::Duration;
 use rand::Rng;
-use bevy::{prelude::*, window::PrimaryWindow};
-
+use bevy::{ecs::entity, prelude::*, render::render_resource::PrimitiveTopology, utils::{HashMap, HashSet}, window::PrimaryWindow};
 use crate::{X_MAX_BOUNDS, X_MIN_BOUNDS, Y_MAX_BOUNDS, Y_MIN_BOUNDS};
-
 /*- Constants -*/
 
 /*- Structs, enums & unions -*/
@@ -48,7 +46,7 @@ impl Plugin for CellSystem {
             .insert_resource(NextGenerationTimer(Timer::new(Duration::from_millis(1), TimerMode::Repeating)))
             .add_systems(Update, system_handle_mouse)
             // .add_systems(Startup, init_cells.in_set(CellSet))
-            .add_systems(Update, system_cells.in_set(CellSet));
+            .add_systems(Update, (system_cells, system_greedy_mesh).in_set(CellSet));
     }
 }
 
@@ -60,7 +58,7 @@ impl Plugin for CellSystem {
 // }
 
 fn system_cells(
-    // mut commands: Commands,
+    mut commands: Commands,
     mut q_cells: Query<(Entity, &mut CellPosition)>,
     mut timer: ResMut<NextGenerationTimer>,
     mut cell_params: ResMut<CellParams>,
@@ -69,33 +67,53 @@ fn system_cells(
     // Run next generation if the timer is finished.
     if cell_params.playing {
         timer.0.tick(time.delta());
-        if timer.0.finished() { cell_params.compute_next_gen = true }
+        if timer.0.finished() {
+            cell_params.compute_next_gen = true
+        }
     }
-    if cell_params.compute_next_gen { cell_params.compute_next_gen = false }
-    else { return }
+    if !cell_params.compute_next_gen { return }
+    cell_params.compute_next_gen = false;
 
-    let static_cell_positions: Vec<(isize, isize)> = q_cells
-        .iter()
-        .filter(|(_, cell_position)| cell_position.static_cell)
-        .map(|(_, cell_position)| (cell_position.x, cell_position.y))
-        .collect();
+    // let static_cell_positions: Vec<(isize, isize)> = q_cells
+    //     .iter()
+    //     .filter(|(_, cell_position)| cell_position.static_cell)
+    //     .map(|(_, cell_position)| (cell_position.x, cell_position.y))
+    //     .collect();
 
-    for (_, mut cell_position) in q_cells.iter_mut() {
-        if cell_position.static_cell { continue; }         // We do not want to iterate over static cells
-
+    let mut occupied_positions = HashSet::new();
+    for (entity, mut cell_position) in q_cells.iter_mut() {
+        let pos = (cell_position.x, cell_position.y);
+        
+        if occupied_positions.contains(&pos) {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        
+        occupied_positions.insert(pos);
+        
+        // println!("Occupied positions: {:?}", occupied_positions);
+        if cell_position.static_cell {
+            continue;
+        }         // We do not want to iterate over static cells
+        
         let scan_pos_below = (cell_position.x, cell_position.y - 1);
         let scan_pos_right = (cell_position.x + 1, cell_position.y - 1);
         let scan_pos_left = (cell_position.x - 1, cell_position.y - 1);
 
         // Skip out of bounds cells and mark them as static since they can't move
-        if scan_pos_below.1 < Y_MIN_BOUNDS || scan_pos_below.1 > Y_MAX_BOUNDS || scan_pos_below.0 < X_MIN_BOUNDS || scan_pos_below.0 > X_MAX_BOUNDS {
+        if scan_pos_below.1 <= Y_MIN_BOUNDS
+            || scan_pos_below.1 >= Y_MAX_BOUNDS
+            || scan_pos_below.0 < X_MIN_BOUNDS
+            || scan_pos_below.0 > X_MAX_BOUNDS
+        {
             cell_position.static_cell = true;
             continue;
         }
 
-        if !static_cell_positions.contains(&scan_pos_below) {
+        //movement logic
+        if !occupied_positions.contains(&scan_pos_below) {
             cell_position.y -= 1
-        } else if !static_cell_positions.contains(&scan_pos_right) && !static_cell_positions.contains(&scan_pos_left) {
+        } else if !occupied_positions.contains(&scan_pos_right) && !occupied_positions.contains(&scan_pos_left) {
             let mut rng = rand::thread_rng();
 
             //if boolean true, move right, else move left
@@ -106,15 +124,73 @@ fn system_cells(
                 cell_position.x -= 1;
                 cell_position.y -= 1;
             }
-        } else if !static_cell_positions.contains(&scan_pos_right) {
+        } else if !occupied_positions.contains(&scan_pos_right) {
             cell_position.x += 1;
             cell_position.y -= 1;
-        } else if !static_cell_positions.contains(&scan_pos_left) {
+        } else if !occupied_positions.contains(&scan_pos_left) {
             cell_position.x -= 1;
             cell_position.y -= 1;
         } else {
             //this means that the cell below is a static cell and it can not move anywhere
             cell_position.static_cell = true;
+        }
+    }
+}
+
+// fn system_greedy_mesh( // prototype
+//     mut commands: Commands,
+//     q_cells: Query<(Entity, &CellPosition)>,
+// ) {
+//     let mut y_counts = HashMap::new();
+//     //only count if there is only static cells in the scene
+    
+//     for (_, cell_position) in q_cells.iter() {
+//         if cell_position.static_cell {
+//             *y_counts.entry(cell_position.y).or_insert(0) += 1;
+//         }
+//     }
+
+//     println!("{:?}", y_counts);
+//     let total_count: usize = y_counts.values().sum();
+//     println!("Total count of entities: {}", total_count);
+
+//     for (y, count) in y_counts.iter() {
+//         if *count >= 385 {
+//             for (entity, cell_position) in q_cells.iter() {
+//                 if cell_position.static_cell && cell_position.y == *y {
+//                     println!("Removing cell at {:?}", cell_position);
+//                 }
+//             }
+//         }
+//     }
+// }
+
+fn system_greedy_mesh( // prototype
+    mut commands: Commands,
+    q_cells: Query<(Entity, &CellPosition), With<CellPosition>>,
+) {
+    let mut y_counts = HashMap::new();
+
+    // Count entities with the same y-coordinate and static_cell set to true
+    for (_, cell_position) in q_cells.iter() {
+        if cell_position.static_cell {
+            *y_counts.entry(cell_position.y).or_insert(0) += 1;
+        }
+    }
+
+    // println!("{:?}", y_counts);
+    let total_count: usize = y_counts.values().sum();
+    // println!("Total count of entities: {}", total_count);
+
+
+    for (y, count) in y_counts.iter() {
+        if *count >= 100 {
+            for (entity, cell_position) in q_cells.iter() {
+                if cell_position.static_cell && cell_position.y == *y {
+                    commands.entity(entity).despawn();
+                    // println!("Removing cell at {:?}", cell_position);
+                }
+            }
         }
     }
 }
@@ -144,7 +220,8 @@ fn system_handle_mouse(
         return;
     }
 
-    let deltas = vec![(0, 0), (0, 1), (1, 0), (-1, 0), (0, -1)];
+    // let deltas = vec![(0, 0), (0, 1), (1, 0), (-1, 0), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1), (2, 0), (-2, 0), (0, 2), (0, -2), (2, 2), (-2, 2), (2, -2), (-2, -2)];
+    let deltas = vec![(0, 0)];
 
     for (dx, dy) in deltas {
         let new_cell = CellPosition {

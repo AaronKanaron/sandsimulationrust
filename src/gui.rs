@@ -7,7 +7,7 @@ use crate::{cell_system::{CellPosition, CellSet}, X_MAX_BOUNDS, Y_MAX_BOUNDS};
 
 /*- Constants -*/
 const BACKGROUND_COLOR: Color = Color::rgb(0.08, 0.08, 0.08);
-const SCALE_DEF: f32 = 1. / 4.; // zoom
+const SCALE_DEF: f32 = 1. / 8.; // zoom
 // const SCALE_MAX: f32 = 1.;
 
 /*- Structs, enums & unions -*/
@@ -20,7 +20,7 @@ impl Plugin for GuiSystem {
     fn build(&self, app: &mut App) {
         app.insert_resource(ClearColor(BACKGROUND_COLOR))
             .add_systems(Startup, init_camera)
-            // .add_systems(Update, system_entity_counter)
+            .add_systems(Update, system_entity_counter)
             .add_systems(Update, system_draw_new_cells.before(CellSet));
     }
 }
@@ -38,7 +38,7 @@ fn init_camera(mut commands: Commands) {
     commands.spawn(SpriteBundle {
         sprite: Sprite {
             color: Color::rgb(0., 0., 0.),
-            custom_size: Some(Vec2::new((X_MAX_BOUNDS as f32 + 1.5)* 2., (Y_MAX_BOUNDS as f32 + 1.) * 2.)),
+            custom_size: Some(Vec2::new((X_MAX_BOUNDS as f32 + 1.)* 2., (Y_MAX_BOUNDS as f32 + 1.) * 2.)),
             ..Default::default()
         },
         transform: Transform::from_xyz(0., 0., 0.),
@@ -66,21 +66,21 @@ fn system_draw_new_cells(
     }
 }
 
-// fn system_entity_counter(
-//     mut commands: Commands,
-//     q_cells: Query<&CellPosition>
-// ) {
-//     let mut counter = 0;
-//     let mut static_counter = 0;
-//     let mut moving_counter = 0;
-//     for cell_position in q_cells.iter() {
-//         counter += 1;
+fn system_entity_counter(
+    mut commands: Commands,
+    q_cells: Query<&CellPosition>
+) {
+    let mut counter = 0;
+    let mut static_counter = 0;
+    let mut moving_counter = 0;
+    for cell_position in q_cells.iter() {
+        counter += 1;
 
-//         if cell_position.static_cell { static_counter += 1 }
-//         else { moving_counter += 1 }
-//     }
-//     println!("Entity count: {} | {} static and {} mobile", counter, static_counter, moving_counter);
-// }
+        if cell_position.static_cell { static_counter += 1 }
+        else { moving_counter += 1 }
+    }
+    println!("Entity count: {} | {} static and {} mobile", counter, static_counter, moving_counter);
+}
 
 
 /*- Method implementations - */
