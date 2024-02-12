@@ -67,7 +67,6 @@ fn system_draw_new_cells(
 }
 
 fn system_entity_counter(
-    mut commands: Commands,
     q_cells: Query<&CellPosition>
 ) {
     let mut counter = 0;

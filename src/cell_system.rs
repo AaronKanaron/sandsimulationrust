@@ -37,16 +37,20 @@ impl Default for CellParams {
 #[derive(Resource)]
 pub struct NextGenerationTimer(Timer);
 
+#[derive(Resource)]
+pub struct NextMouseClickTimer(Timer);
+
 pub struct CellSystem;
 
 impl Plugin for CellSystem {
     fn build(&self, app: &mut App) {
         let cell_params = CellParams::default();
         app.insert_resource(cell_params)
-            .insert_resource(NextGenerationTimer(Timer::new(Duration::from_millis(1), TimerMode::Repeating)))
-            .add_systems(Update, system_handle_mouse)
+            .insert_resource(NextGenerationTimer(Timer::new(Duration::from_millis(100), TimerMode::Repeating)))
+            .insert_resource(NextMouseClickTimer(Timer::new(Duration::from_millis(10), TimerMode::Repeating)))
             // .add_systems(Startup, init_cells.in_set(CellSet))
-            .add_systems(Update, (system_cells, system_greedy_mesh).in_set(CellSet));
+            .add_systems(Update, (system_cells, system_greedy_mesh).in_set(CellSet))
+            .add_systems(Update, system_handle_mouse.after(CellSet));
     }
 }
 
@@ -59,7 +63,7 @@ impl Plugin for CellSystem {
 
 fn system_cells(
     mut commands: Commands,
-    mut q_cells: Query<(Entity, &mut CellPosition)>,
+    mut q_cells: Query<(Entity, &mut CellPosition, &mut Sprite)>,
     mut timer: ResMut<NextGenerationTimer>,
     mut cell_params: ResMut<CellParams>,
     time: Res<Time>,
@@ -76,25 +80,32 @@ fn system_cells(
 
     // let static_cell_positions: Vec<(isize, isize)> = q_cells
     //     .iter()
-    //     .filter(|(_, cell_position)| cell_position.static_cell)
-    //     .map(|(_, cell_position)| (cell_position.x, cell_position.y))
+    //     .filter(|(_, cell_position, _)| cell_position.static_cell)
+    //     .map(|(_, cell_position, _)| (cell_position.x, cell_position.y))
     //     .collect();
 
-    let mut occupied_positions = HashSet::new();
-    for (entity, mut cell_position) in q_cells.iter_mut() {
+    let mut static_cell_positions = HashSet::new();
+    for (_, cell_pos, _) in q_cells.iter() {
+        if cell_pos.static_cell {
+            static_cell_positions.insert((cell_pos.x, cell_pos.y));
+        }
+    }
+
+    // let mut occupied_positions = HashSet::new();
+    for (entity, mut cell_position, mut sprite) in q_cells.iter_mut() {
         let pos = (cell_position.x, cell_position.y);
         
-        if occupied_positions.contains(&pos) {
-            commands.entity(entity).despawn();
+        if static_cell_positions.iter().filter(|&&p| p == pos).count() > 1{
+            sprite.color = Color::rgb(1., 0., 0.);
+            // commands.entity(entity).despawn();
+            println!("Two or more static entities at the same position {:?}", pos);
             continue;
         }
-        
-        occupied_positions.insert(pos);
-        
-        // println!("Occupied positions: {:?}", occupied_positions);
+                
         if cell_position.static_cell {
             continue;
         }         // We do not want to iterate over static cells
+        // println!("Occupied positions: {:?}", occupied_positions);
         
         let scan_pos_below = (cell_position.x, cell_position.y - 1);
         let scan_pos_right = (cell_position.x + 1, cell_position.y - 1);
@@ -103,17 +114,18 @@ fn system_cells(
         // Skip out of bounds cells and mark them as static since they can't move
         if scan_pos_below.1 <= Y_MIN_BOUNDS
             || scan_pos_below.1 >= Y_MAX_BOUNDS
-            || scan_pos_below.0 < X_MIN_BOUNDS
-            || scan_pos_below.0 > X_MAX_BOUNDS
+            || scan_pos_right.0 <= X_MIN_BOUNDS
+            || scan_pos_left.0 >= X_MAX_BOUNDS
         {
             cell_position.static_cell = true;
             continue;
         }
 
         //movement logic
-        if !occupied_positions.contains(&scan_pos_below) {
+        if !static_cell_positions.contains(&scan_pos_below) {
             cell_position.y -= 1
-        } else if !occupied_positions.contains(&scan_pos_right) && !occupied_positions.contains(&scan_pos_left) {
+        }
+        else if !static_cell_positions.contains(&scan_pos_right) && !static_cell_positions.contains(&scan_pos_left) {
             let mut rng = rand::thread_rng();
 
             //if boolean true, move right, else move left
@@ -124,14 +136,16 @@ fn system_cells(
                 cell_position.x -= 1;
                 cell_position.y -= 1;
             }
-        } else if !occupied_positions.contains(&scan_pos_right) {
+        }
+        else if !static_cell_positions.contains(&scan_pos_right) {
             cell_position.x += 1;
             cell_position.y -= 1;
-        } else if !occupied_positions.contains(&scan_pos_left) {
+        } else if !static_cell_positions.contains(&scan_pos_left) {
             cell_position.x -= 1;
             cell_position.y -= 1;
         } else {
             //this means that the cell below is a static cell and it can not move anywhere
+            println!("{:?} is unable to move", entity);
             cell_position.static_cell = true;
         }
     }
@@ -202,10 +216,19 @@ fn system_handle_mouse(
     mouse_button: Res<Input<MouseButton>>,
     q_windows: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
-    q_cells: Query<(Entity, &CellPosition)>
+    q_cells: Query<(Entity, &CellPosition)>,
+    mut mouse_timer: ResMut<NextMouseClickTimer>,
+    time: Res<Time>,
 ) {
     if !mouse_button.pressed(MouseButton::Left) { return }
+    mouse_timer.0.tick(time.delta());
+    if !mouse_timer.0.finished() {
+        return
+    } 
     
+    
+
+
     // Get the cursor position
     let Some(cursor_position) = q_windows.single().cursor_position() else { return };
 
@@ -231,14 +254,15 @@ fn system_handle_mouse(
         };
 
         //check if there is already a cell at the position
-        if q_cells.iter().any(|(_, cell_position)| cell_position.x == new_cell.x && cell_position.y == new_cell.y) {
+        if q_cells.iter().any(|(_, cell_position)| cell_position.x == new_cell.x && cell_position.y == new_cell.y)
+        || q_cells.iter().any(|(_, cell_position)| cell_position.x == new_cell.x && cell_position.y == new_cell.y - 1) {
             continue;
         }
 
         //check if outside boundaries
-        if new_cell.x < X_MIN_BOUNDS || new_cell.x > X_MAX_BOUNDS || new_cell.y < Y_MIN_BOUNDS || new_cell.y > Y_MAX_BOUNDS {
-            continue;
-        }
+        // if new_cell.x < X_MIN_BOUNDS || new_cell.x > X_MAX_BOUNDS || new_cell.y < Y_MIN_BOUNDS || new_cell.y > Y_MAX_BOUNDS {
+        //     continue;
+        // }
 
         commands.spawn(new_cell);
     }
